@@ -1,0 +1,126 @@
+    DIGITAL TREMOLO CONTROLLER ASIC
+                    tt_um_pschuetz_tremolo - Tiny Tapeout
+
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                         INPUT PINS                          │
+        │                                                             │
+        │  ui[0]   = Enable tremolo                                  │
+        │  ui[2:1] = Rate select                                     │
+        │  ui[4:3] = Depth select                                    │
+        │  ui[6:5] = Waveform select                                 │
+        │  ui[7]   = Test speed select                               │
+        │            0 = real pedal speed, 1 = fast test/demo speed  │
+        └─────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                    INPUT DECODE LOGIC                       │
+        │                                                             │
+        │  Separates ui_in into enable, rate, depth, waveform,        │
+        │  and test-speed control signals.                            │
+        └─────────────────────────────────────────────────────────────┘
+                                      │
+                ┌─────────────────────┼─────────────────────┐
+                │                     │                     │
+                ▼                     ▼                     ▼
+
+        ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+        │ Rate Control  │     │ Depth Control │     │ Waveform      │
+        │               │     │               │     │ Select Logic  │
+        │ ui[2:1]       │     │ ui[4:3]       │     │ ui[6:5]       │
+        │ selects LFO   │     │ selects       │     │ selects LFO   │
+        │ speed         │     │ modulation    │     │ shape         │
+        │               │     │ intensity     │     │               │
+        └───────┬───────┘     └───────┬───────┘     └───────┬───────┘
+                │                     │                     │
+                ▼                     │                     │
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                    RATE DIVIDER COUNTER                     │
+        │                                                             │
+        │  Divides the main clock down so the LFO changes slowly.     │
+        │  ui[7] selects between real pedal-speed mode and fast       │
+        │  simulation/demo mode.                                      │
+        └─────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                 LFO COUNTER                                 │
+        │          Low Frequency Oscillator                           │
+        │                                                             │
+        │  Creates the slow-moving tremolo modulation timing.         │
+        │  This is the "heartbeat" of the tremolo effect.             │
+        └─────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                 WAVEFORM GENERATOR                          │
+        │                                                             │
+        │  Uses the LFO counter to create different modulation shapes:│
+        │                                                             │
+        │     00 = Saw Up                                             │
+        │     01 = Saw Down                                           │
+        │     10 = Square                                             │
+        │     11 = Triangle-like                                      │
+        └─────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                 DEPTH SCALING LOGIC                         │
+        │                                                             │
+        │  Adjusts how strong the modulation is.                      │
+        │                                                             │
+        │     depth 00 = light tremolo                                │
+        │     depth 01 = medium tremolo                               │
+        │     depth 10 = deep tremolo                                 │
+        │     depth 11 = full tremolo                                 │
+        └─────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                 MODULATION LEVEL                            │
+        │                                                             │
+        │  8-bit value that represents the current tremolo level.     │
+        │  This value changes over time based on rate, depth,         │
+        │  and waveform selection.                                    │
+        └─────────────────────────────┬───────────────────────────────┘
+                                      │
+                                      ▼
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                    PWM COMPARATOR                           │
+        │                                                             │
+        │  Compares:                                                  │
+        │                                                             │
+        │      pwm_counter < modulation_level                         │
+        │                                                             │
+        │  This creates a PWM output whose duty cycle changes         │
+        │  over time.                                                 │
+        └─────────────────────────────┬───────────────────────────────┘
+                                      ▲
+                                      │
+        ┌─────────────────────────────┴───────────────────────────────┐
+        │                    PWM COUNTER                              │
+        │                                                             │
+        │  Fast 8-bit counter used to create the PWM carrier signal.  │
+        └─────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+
+        ┌─────────────────────────────────────────────────────────────┐
+        │                         OUTPUT PINS                         │
+        │                                                             │
+        │  uo[0]   = PWM tremolo control output                       │
+        │  uo[1]   = LFO debug output                                 │
+        │  uo[2]   = PWM counter debug output                         │
+        │  uo[3]   = Enable status                                    │
+        │  uo[7:4] = Modulation level debug output                    │
+        │                                                             │
+        │  uio[7:0] = unused                                          │
+        └─────────────────────────────────────────────────────────────┘
